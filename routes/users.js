@@ -13,7 +13,12 @@ const {
   emailExists,
   userExistsById,
 } = require("../helpers/db-validators");
-const validateEntries = require("../middlewares/validate-entries");
+const {
+  validateEntries,
+  validateJWT,
+  isAdminRole,
+  hasRole,
+} = require("../middlewares");
 
 const router = Router();
 
@@ -51,6 +56,9 @@ router.patch("/", usersPatch);
 router.delete(
   "/:id",
   [
+    validateJWT,
+    // isAdminRole,
+    hasRole("ADMIN_ROLE"),
     check("id", "Not a valid ID").isMongoId(),
     check("id").custom(userExistsById),
     validateEntries,
