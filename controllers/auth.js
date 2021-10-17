@@ -1,8 +1,9 @@
-const { response } = require("express");
+const { response, json } = require("express");
 const bcryptjs = require("bcryptjs");
 
 const User = require("../models/user");
 const { generateJWT } = require("../helpers/generate-jwt");
+const { googleVerify } = require("../helpers/google-verify");
 
 const login = async (req, res = response) => {
   const { email, password } = req.body;
@@ -28,7 +29,7 @@ const login = async (req, res = response) => {
         msg: "Invalid password",
       });
     }
-    // Generate KWT
+    // Generate JWT
     const token = await generateJWT(user.id);
     res.json({
       user,
@@ -42,4 +43,51 @@ const login = async (req, res = response) => {
   }
 };
 
-module.exports = { login };
+const googleSignIn = async (req, res = response) => {
+  const { id_token } = req.body;
+
+  try {
+    const { name, img, email } = await googleVerify(id_token);
+
+    let user = await User.findOne({ email });
+
+    // if user doesn't exist create it
+    if (!user) {
+      const data = {
+        role: "USER_ROLE",
+        name,
+        email,
+        password: ":P",
+        img,
+        google: true,
+      };
+
+      user = new User(data);
+      await user.save();
+    }
+
+    //if user exists in DB
+    if (!user.state) {
+      return res.status(401).json({
+        msg: "Talk with an admin - User blocked",
+      });
+    }
+
+    // Generate JWT
+    const token = await generateJWT(user.id);
+
+    res.json({
+      msg: "All OK",
+      user,
+      token,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(400).json({
+      ok: false,
+      msg: "Token could not be verified",
+    });
+  }
+};
+
+module.exports = { login, googleSignIn };
